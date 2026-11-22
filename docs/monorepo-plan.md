@@ -1,6 +1,6 @@
 # Plan: Combine ConnectAnytime iOS & Android into One Repo (Lean Revision)
 
-**Status:** Plan only — nothing has been moved yet.
+**Status:** Phases 1 and 2 are complete. Phase 3 awaits approval. The cutover covers Internal TestFlight on iOS and the GitHub Releases updater on Android.
 **Target repo:** `muunkk/connectanytime-mobile` (public; name is final before Android's switch release).
 **Out of scope:** The Mac app (`muunkk/connectanytime`), which drives Cisco Secure Client and shares no OpenConnect code or release flow.
 
@@ -23,10 +23,10 @@ connectanytime-mobile/
   docs/
     releasing.md             # exact iOS + Android build & release commands
     history/
-      ios-commit-map         # from ios.git/filter-repo/commit-map
-      android-commit-map     # from android.git/filter-repo/commit-map
-  ios/                       # muunkk/connectanytime-ios tree, unchanged
-  android/                   # muunkk/connectanytime-android tree, unchanged
+      ios-commit-map         # legacy-to-imported iOS commit IDs
+      android-commit-map     # legacy-to-imported Android commit IDs
+  ios/                       # iOS app imported from the shipped v0.1.3 baseline
+  android/                   # Android app imported from the shipped v0.1.4 baseline
   engine/                    # Phase 4 only: shared OpenConnect patches & host tests
 ```
 
@@ -47,85 +47,21 @@ Why each app builds unchanged inside `ios/` and `android/`:
 
 ## Phases
 
-### Phase 0 — Land & prove pending work first
+### Import and publication record
 
-Bring `main` up to date on both repos before importing so no active stack has to be replayed across the move:
-
-1. **iOS (`muunkk/connectanytime-ios`):** Merge `overnight-diagnostics` (`v0.1.3` / `#15` / `#16`) into `main` (currently at `v0.1.1`).
-2. **Android (`muunkk/connectanytime-android`):** Merge or close open branches (`audit-fixes` `#7`, `battery-measure` `#9`, `widget-hotspot-state` `#10`), and decide whether to fix `#12` (Duo spam after cancel) before or after the move.
-   - *Watch out on `#7`:* Its branch still declares `0.1.3 (4)` and modifies `Updates.kt` / `Storage.kt`. Make sure the merge leaves `versionCode` ≥ `5`.
-   - **Prove merged Android code before changing `REPO`:** Ship merged `main` on the old repo (e.g. `0.1.5 (6)`) and install it on your phone. Because `0.1.4 → 0.1.5` runs `0.1.4`'s updater rather than `#7`'s new installer code, if `#7` is merged before the move, prove `#7`'s updater by letting `0.1.5` self-update to one higher old-repo release (e.g. `0.1.6 (7)`) before changing `REPO`—or keep `#7` for right after Phase 3B. Either way, Phase 3B's switch build carries *only* the `REPO` change on top of a phone-proven updater.
-3. **Unmerged branches & worktrees:** Anything left off `main` (such as iOS's 7-commit `hotspot-investigation` branch) stays readable in the old repo even after archiving. Close old T3 worktrees once their branches are settled.
-4. **Prep:** Record the highest Android `versionCode` ever exposed (currently `5`) and latest iOS TestFlight version/build. Install `git-filter-repo` (`brew install git-filter-repo`).
-
-*Rollback:* Nothing in the monorepo has changed; any old-repo Android release published in step 2 follows normal roll-forward rules (reserve its `versionCode` and ship a higher one if needed).
-
----
-
-### Phase 1 — Build & verify the monorepo locally (old repos untouched)
-
-Create the combined history in a scratch folder using HTTPS remotes (SSH host-key verification isn't configured on this Mac), then clone/move to the **final checkout path** *before* building native libraries (since regenerated `.pc`/`.la` metadata embeds the checkout path):
-
-```sh
-git clone --mirror https://github.com/muunkk/connectanytime-ios.git ios.git
-git clone --mirror https://github.com/muunkk/connectanytime-android.git android.git
-git -C ios.git     filter-repo --to-subdirectory-filter ios     --tag-rename '':'ios-'
-git -C android.git filter-repo --to-subdirectory-filter android --tag-rename '':'android-'
-
-git init -b main /Users/mini/Master/code/connectanytime-mobile
-cd /Users/mini/Master/code/connectanytime-mobile
-git commit --allow-empty -m "Initialize ConnectAnytime mobile monorepo"
-git pull /path/to/ios.git main     --allow-unrelated-histories --no-rebase
-git pull /path/to/android.git main --allow-unrelated-histories --no-rebase
-git fetch /path/to/ios.git     'refs/tags/*:refs/tags/*'
-git fetch /path/to/android.git 'refs/tags/*:refs/tags/*'
-```
-
-Copy `ios.git/filter-repo/commit-map` and `android.git/filter-repo/commit-map` into `docs/history/`, and add root `README.md`, `.gitignore`, and `docs/releasing.md` (with the exact iOS and Android build/release commands). Each app keeps its own `LICENSE` and `.gitignore`.
-
-**Local setup at `/Users/mini/Master/code/connectanytime-mobile`:**
-1. Copy gitignored secrets/config:
-   - `anyconnectios/Config/Local.xcconfig` → `ios/Config/`
-   - `connectanytime-android/keystore.properties` → `android/` (`storeFile` is an absolute path outside the repo)
-   - `connectanytime-android/local.properties` → `android/`
-2. Copy the downloaded tarballs (`Vendor/src/*.tar.*`) to avoid re-downloading, then run `ios/Vendor/build-deps.sh` (plus `ios/Vendor/build-deps.sh simulator` if building the full app on Simulator) and `android/Vendor/build-deps.sh` cleanly once (expect several minutes, up to ~15 min total).
-   - *Why rebuild instead of copying `Vendor/out`:* On iOS, `Vendor/out/lib/pkgconfig/*.pc` embeds the old checkout path and would be read on future patch rebuilds; rebuilding both from the final checkout path guarantees self-contained libraries. Future monorepo worktrees can copy `Vendor/out*` from this canonical checkout, just as today. Keep the old checkouts untouched as fallback.
-
-**Verification before pushing:**
-- **Git trees & tags:** Run `git -C <old> fetch`, then verify `git -C <old> rev-parse origin/main^{tree}` equals `git rev-parse HEAD:ios` and `HEAD:android`. Spot-check prefixed tag trees against the old tags (including `ios-v0.1.2`, which lands off `main` if `overnight-diagnostics` is squashed).
-- **iOS (from `ios/`):**
-  - `xcodegen generate`
-  - Build `ConnectAnytime` with `-destination generic/platform=iOS CODE_SIGNING_ALLOWED=NO` (proves the tunnel's pre-build patch check and static linking; `ConnectAnytimeTests` is hostless and skips both).
-  - Run `ConnectAnytimeTests` on Simulator and `scripts/test-strap-cookie.sh`.
-  - Run one signed Release archive + export (`Config/ExportOptions-TestFlight.plist`, `/usr/bin` ahead of Homebrew in `PATH` for Apple's `rsync`) and inspect `codesign -d --entitlements -` on the app, tunnel, and widget to confirm bundle IDs (`com.muunkk.connectanytime{,.tunnel,.widgets}`), team, and `keychain-access-groups` (`$(AppIdentifierPrefix)com.muunkk.connectanytime.shared`).
-- **Android (from `android/`):**
-  - Run `./gradlew testDebugUnitTest lintDebug lintRelease assembleDebug assembleRelease`.
-  - Run `python3 scripts/verify-release.py`, `scripts/verify-native.sh`, and `scripts/test-strap-cookie.sh`.
-  - Explicitly assert the signing cert fingerprint (since `verify-release.py` only prints it):
-    `"$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --print-certs app/build/outputs/apk/release/app-release.apk | grep -q b5e81629e55045309f942e9c954eb7cf8cea7942095ffbabb9c558b63080035e`
-
-*Rollback:* Delete `/Users/mini/Master/code/connectanytime-mobile`.
-
----
-
-### Phase 2 — Publish & switch workspace
-
-1. Create public repo `muunkk/connectanytime-mobile` (verify releases are not set to immutable so drafts/re-drafts work).
-2. Push **only** `main` and the `ios-v*` / `android-v*` tags (never `refs/pull/*`).
-3. Create labels (`ios`, `android`, `engine`, `bug`, `enhancement`, `priority: low`) so they exist before issues are transferred later.
-4. Add `/Users/mini/Master/code/connectanytime-mobile` as a T3 project.
-5. Update each app's README (`cd ios` / `cd android`, new tag prefixes, `VERIFICATION.md` checkout path) and copy still-true agent memory notes.
-6. **Wait to transfer issues, add "Moved" notices, or archive the old repos until Phase 3 device checks pass**—if anything goes wrong during Phase 3, nothing on the old repos has to be unwound.
-
-*Rollback:* Delete the new repo and keep working in the old repos.
-
----
+- **iOS:** The imported source is [`overnight-diagnostics` at `v0.1.3`](https://github.com/muunkk/connectanytime-ios/tree/v0.1.3) (`669fc96`). It includes PRs #15 and #16. Legacy `main` remains at `v0.1.1`. Record the seven unique commits on `hotspot-investigation` for follow-up.
+- **Android:** The imported source is [`main` at `v0.1.4`](https://github.com/muunkk/connectanytime-android/tree/v0.1.4) (`f9c571b`). Defer [#7 audit fixes](https://github.com/muunkk/connectanytime-android/pull/7), [#9 battery measurement](https://github.com/muunkk/connectanytime-android/pull/9), and [#10 widget hotspot state](https://github.com/muunkk/connectanytime-android/pull/10) until the monorepo updater passes its phone test. The #7 branch was based on `0.1.3 (4)` and changes the updater and storage. Preserve the monorepo release version and feed changes when porting it. #9 and #10 are separate branches based on `0.1.4 (5)`.
+- **History:** The platform directories at import commit `e363259` match those legacy trees exactly. The eight prefixed Git tags also match their original app trees. Commit maps cover the selected branch and tag ancestry. Deferred branch and GitHub-generated pull request commits are outside that history. Phase 2 updated the platform READMEs and Android verification notes.
+- **Validation:** Phase 1 built both native dependency trees at the canonical checkout, ran the iOS tests and signed export, and checked Android JVM tests, lint, native outputs, release APK alignment and signing. Keep using the existing iOS team and Android signing key. Store local config and generated outputs outside published history.
+- **GitHub:** `muunkk/connectanytime-mobile` was published with `main`, the eight prefixed tags and the platform labels. GitHub Releases are reserved for Android from Phase 3B onward. Keep legacy issues, repositories and releases in place until each platform passes its device checks.
 
 ### Phase 3 — First real release of each app from the monorepo
 
+Begin only after approval. Refresh the GitHub and TestFlight inventories, then follow the [release runbook](releasing.md). Preserve the legacy branch and PR links before archiving either repo.
+
 #### 3A. iOS (TestFlight)
-1. Bump `MARKETING_VERSION` / `CURRENT_PROJECT_VERSION` in `ios/project.yml`, merge, tag and push `ios-vX.Y.Z` (git tag only—no GitHub Release).
-2. From `ios/`: `xcodegen generate`, archive and export per `docs/releasing.md` / `ios/README.md` (`Config/ExportOptions-TestFlight.plist`, `/usr/bin` ahead of Homebrew in `PATH`), and upload to Internal TestFlight (app ID `6825901619`) via `asc`.
+1. Confirm the current internal build. The audited baseline is `0.1.3 (4)`. Use `0.1.4 (5)` if that pair is still unused. Bump `MARKETING_VERSION` / `CURRENT_PROJECT_VERSION` in `ios/project.yml`, merge, then tag the exact commit locally as `ios-vX.Y.Z`.
+2. From `ios/`: `xcodegen generate`, archive and export per `docs/releasing.md` / `ios/README.md` (`Config/ExportOptions-TestFlight.plist`, `/usr/bin` ahead of Homebrew in `PATH`), then push the verified tag and upload the IPA to Internal TestFlight (app ID `6825901619`). Confirm export compliance and internal group availability.
 3. Smoke-test on your iPhone installing over the previous TestFlight build: Keychain password preserved, VPN connects, Control Center widget works, and Stay Connected rejoins automatically after a network switch and after a reboot **without tapping Disconnect** (which intentionally clears the saved session).
 4. Once confirmed: transfer open iOS issues (`gh issue transfer`), add a "Moved" notice to `connectanytime-ios`'s README, and archive `muunkk/connectanytime-ios`.
 
@@ -133,22 +69,24 @@ Copy `ios.git/filter-repo/commit-map` and `android.git/filter-repo/commit-map` i
 
 #### 3B. Android (minimal updater switch + end-to-end proof)
 
+Confirm the installed Android baseline reports `0.1.4 (5)` and can connect before installing the switch build. Verify the highest version code ever exposed, including withdrawn builds.
+
 **Step 1 — Tiny updater PR (`android/app/src/main/java/com/muunkk/connectanytime/Updates.kt`):**
 - Change `REPO = "muunkk/connectanytime-mobile"` (`API`, `PAGES`, and `DOWNLOADS` all derive from it; `ReleaseFeed.newest` already ignores any release lacking a valid `ConnectAnytime-<ver>-<code>.apk` asset with a `sha256:` digest, so no `tag_name` filter or pagination is needed).
 - Rename the cached feed file from `"release-feed.json"` to `"release-feed-v2.json"` (one-line cache reset so the first check against the new repo never sends the old ETag, with zero changes to `Storage.kt`).
-- Update `UpdatesTest`, `UpdaterTest`, and `app/src/test/resources/github-releases.json` for `muunkk/connectanytime-mobile` (keep a test confirming old-repo URLs are rejected).
+- Update `UpdatesTest`, `UpdaterTest`, and `app/src/test/resources/github-releases.json` for `muunkk/connectanytime-mobile` (keep tests for old-repo URL rejection and a first request without the legacy ETag).
 - Update updater repo references in `android/README.md` and `android/VERIFICATION.md`.
 
 **Step 2 — Ship the switch release:**
-1. Bump `versionCode` (strictly above the highest ever exposed on either repo, including any withdrawn release) and `versionName` in `android/app/build.gradle.kts`, merge, push tag `android-vX.Y.Z` on the merge commit, and check out that tag (`git checkout android-vX.Y.Z`) so the APK is built from the exact tagged commit.
+1. Bump `versionCode` (strictly above the highest ever exposed on either repo, including any withdrawn release) and `versionName` in `android/app/build.gradle.kts`, merge, tag the merge commit locally as `android-vX.Y.Z`, and check out that tag so the APK is built from the exact tagged commit.
 2. From `android/`: run `Vendor/build-deps.sh`, `./gradlew testDebugUnitTest lintDebug lintRelease assembleDebug assembleRelease`, `python3 scripts/verify-release.py`, `scripts/verify-native.sh`, `scripts/test-strap-cookie.sh`, and the explicit `apksigner ... | grep -q b5e81629...080035e` check.
 3. Copy `app-release.apk` to `app/build/outputs/apk/release/ConnectAnytime-<versionName>-<versionCode>.apk` (stays gitignored).
-4. Create a **draft** prerelease on the monorepo:
+4. Push the verified tag and create a **draft** prerelease on the monorepo:
    `gh release create android-vX.Y.Z --repo muunkk/connectanytime-mobile --verify-tag --prerelease --draft ...`
-   Verify via `gh api` that the asset has `state: "uploaded"` and a `sha256:` digest matching `shasum -a 256` locally, then publish (`--draft=false`) and confirm it appears in the public `/releases` feed.
+   Verify via `gh api` that the asset has `state: "uploaded"` and a `sha256:` digest matching `shasum -a 256` locally, then publish by the verified release ID and confirm it appears in the public `/releases` feed.
 5. **Install the switch build on your phone (choose one):**
-   - **Option A (`adb install -r` — simplest for one phone):** Run `adb install -r ConnectAnytime-<versionName>-<versionCode>.apk`. Preserves all settings, hotspot config, and saved session with zero extra release work on the old repo. *(Expected: shell becomes installer of record, so Step 3's in-app update will prompt for one confirmation tap; silent updates resume after that.)*
-   - **Option B (bridge prerelease on old repo — zero sideloading):** Publish that exact same APK once via draft → verify digest → publish on `muunkk/connectanytime-android` (`vX.Y.Z`, targeting the old repo's `main` since the monorepo commit doesn't exist there—so omit `--verify-tag` and note the monorepo commit SHA in the release body). Tap **Check for updates** → **Install** in the app (keeps the app as installer of record).
+   - **Option A (`adb install -r` — simplest for one phone):** Run `adb install -r ConnectAnytime-<versionName>-<versionCode>.apk`. Preserves all settings, hotspot config, and saved session with zero extra release work on the old repo. *(Android may show an install confirmation on the next update. Complete it if shown and verify the new version.)*
+   - **Option B (bridge prerelease on old repo, only with explicit approval):** Publish that exact same APK once via draft → verify digest → publish on `muunkk/connectanytime-android` (`vX.Y.Z`, targeting the old repo's `main` since the monorepo commit doesn't exist there—so omit `--verify-tag` and note the monorepo commit SHA in the release body). Tap **Check for updates** → **Install** in the app (keeps the app as installer of record).
 6. Smoke-test on your Android phone: settings, auto-connect list, hotspot sharing, widget, and saved session intact; VPN connects.
 
 **Step 3 — Prove the new updater end-to-end:**
@@ -190,8 +128,7 @@ Build flags stay in `ios/Vendor/build-deps.sh` and `android/Vendor/build-deps.sh
 ---
 
 ## Summary checklist
-- [ ] **Phase 0:** Merge iOS `overnight-diagnostics` → `main`; merge/ship Android pending branches on the old repo and confirm auto-update on phone.
-- [ ] **Phase 1:** `git filter-repo` (HTTPS) into `/Users/mini/Master/code/connectanytime-mobile`; clean `build-deps.sh` runs; verify trees/tags, iOS signed entitlements + tests, and Android build + `verify-release.py` + cert fingerprint.
-- [ ] **Phase 2:** Push `main` + `ios-v*`/`android-v*` tags to `muunkk/connectanytime-mobile`, create labels, add T3 project, update docs.
+- [x] **Phase 1:** `git filter-repo` (HTTPS) into `/Users/mini/Master/code/connectanytime-mobile`; clean `build-deps.sh` runs; verify trees/tags, iOS signed entitlements + tests, and Android build + `verify-release.py` + cert fingerprint.
+- [x] **Phase 2:** Push `main` + `ios-v*`/`android-v*` tags to `muunkk/connectanytime-mobile`, create labels, add T3 project, update docs.
 - [ ] **Phase 3:** Ship iOS TestFlight from `ios/` → verify on iPhone → transfer iOS issues & archive old iOS repo. Ship Android `REPO` switch (`adb install -r` or bridge prerelease) → prove next monorepo-only in-app update → transfer Android issues & archive old Android repo.
 - [ ] **Phase 4:** Extract `engine/openconnect/patches/` (4a, with forced clean iOS rebuild), then reconcile patch drift one PR at a time (4b).

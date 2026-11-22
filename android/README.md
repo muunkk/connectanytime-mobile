@@ -333,7 +333,7 @@ Nothing has been published or pushed.
 
 ## Updates
 
-From 0.1.2 the app updates itself from this repo's GitHub releases (`Updates.kt`,
+The imported Android build still updates from the legacy `muunkk/connectanytime-android` GitHub releases (`Updates.kt`,
 `UpdateSection.kt`).
 
 - **When it checks.** On opening the app, at most every 6 hours after the last

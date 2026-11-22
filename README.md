@@ -2,7 +2,7 @@
 
 One-tap Connect/Disconnect for the NYU Shanghai VPN on **iOS** and **Android**, without Cisco Secure Client.
 
-This monorepo combines both mobile apps while preserving their full git histories:
+This monorepo combines both mobile apps with the Git history of each imported release baseline and its tags:
 
 - **[ConnectAnytime for iOS](ios/README.md)** (`ios/`) — Swift / Network Extension packet tunnel (`NEPacketTunnelProvider`) with Control Center widget, Siri/Shortcuts, and Stay Connected. Distributed via Internal TestFlight (`ios-vX.Y.Z` git tags only).
 - **[ConnectAnytime for Android](android/README.md)** (`android/`) — Kotlin / Jetpack Compose `VpnService` app with Glance home screen widget, USB/hotspot VPN sharing proxy, and verified in-app GitHub Releases updater (`android-vX.Y.Z` tags + prereleases).
