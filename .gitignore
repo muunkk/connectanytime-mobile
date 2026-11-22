@@ -1,0 +1,3 @@
+# OS noise only; each app keeps its own .gitignore in ios/ and android/.
+.DS_Store
+._*
