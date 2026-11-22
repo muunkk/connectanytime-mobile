@@ -1,0 +1,18 @@
+# Generated
+*.xcodeproj/
+build/
+DerivedData/
+
+# Third-party sources and compiled libraries (rebuild with Vendor/build-deps.sh)
+Vendor/src/
+Vendor/out/
+Vendor/out-sim/
+
+# Personal signing team
+Config/Local.xcconfig
+
+# Logs and local secrets
+*.log
+.env*
+.DS_Store
+xcuserdata/
