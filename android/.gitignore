@@ -1,0 +1,12 @@
+.gradle/
+.kotlin/
+**/build/
+.cxx/
+local.properties
+Vendor/src/
+Vendor/out/
+*.jks
+*.keystore
+.idea/
+.DS_Store
+keystore.properties

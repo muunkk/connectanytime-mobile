@@ -1,0 +1,144 @@
+package com.muunkk.connectanytime
+
+import android.app.Activity
+import android.app.KeyguardManager
+import android.app.PendingIntent
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.graphics.drawable.Icon
+import android.net.VpnService
+import android.os.Build
+import android.os.Bundle
+import android.service.quicksettings.Tile
+import android.service.quicksettings.TileService
+
+object Controls {
+    /** The widget's power button: Disconnect while busy, otherwise Connect. */
+    const val TOGGLE = "com.muunkk.connectanytime.TOGGLE"
+    const val OPEN_TETHERING = "com.muunkk.connectanytime.OPEN_TETHERING"
+    const val OPEN_APP = "com.muunkk.connectanytime.OPEN_APP"
+    /** MainActivity extra: ask before turning hotspot sharing on (the widget's first hotspot tap). */
+    const val EXTRA_CONFIRM_HOTSPOT = "com.muunkk.connectanytime.CONFIRM_HOTSPOT"
+    /** The widget's share buttons: flip that switch, after unlocking like everything here. */
+    const val SHARE_USB = "com.muunkk.connectanytime.SHARE_USB"
+    const val SHARE_HOTSPOT = "com.muunkk.connectanytime.SHARE_HOTSPOT"
+    /** Whether a reboot or app update starts the VPN again by itself (BootReceiver), which only
+     *  rejoins the saved session: an automatic start never logs in with the password. */
+    fun restartsAutomatically(store: Store) = store.stayConnected && store.hasSession && !store.disconnected
+    fun connect(context: Context) {
+        context.startForegroundService(Intent(context, ConnectVpnService::class.java).setAction(ConnectVpnService.CONNECT))
+    }
+    fun disconnect(context: Context) {
+        val store = (context.applicationContext as ConnectApp).store
+        store.disconnected = true
+        context.startService(Intent(context, ConnectVpnService::class.java).setAction(ConnectVpnService.DISCONNECT))
+    }
+}
+
+class BootReceiver : BroadcastReceiver() {
+    override fun onReceive(context: Context, intent: Intent) {
+        if (intent.action != Intent.ACTION_BOOT_COMPLETED && intent.action != Intent.ACTION_MY_PACKAGE_REPLACED) return
+        val app = context.applicationContext as ConnectApp
+        val store = app.store
+        if (intent.action == Intent.ACTION_MY_PACKAGE_REPLACED) store.updatingFrom?.let { from ->
+            // An update this app installed (Updater.install) has gone in.
+            // Nothing here may wait on the disk or throw before the VPN restart below.
+            store.clearUpdatingFrom()
+            runCatching {
+                app.log.add(context.getString(R.string.updated_log, from, BuildConfig.BUILD_DESCRIPTION))
+                Notices.updated(context)
+            }
+        }
+        // A marker left from before the restart or update is explained by the next start
+        // (RunStamp), including one Always-on VPN makes before this broadcast arrives.
+        // Don't touch it here: that run may already be connected and own it.
+        // Credential-encrypted prefs are only available after first unlock. No
+        // direct-boot receiver, and no password login from a boot or sticky start.
+        if (Controls.restartsAutomatically(store) && VpnService.prepare(context) == null) {
+            runCatching { context.startForegroundService(Intent(context, ConnectVpnService::class.java).setAction(ConnectVpnService.AUTOMATIC)) }
+                .onFailure { app.log.add(context.getString(R.string.restart_postponed)) }
+        }
+    }
+}
+class ConnectTileService : TileService() {
+    override fun onStartListening() {
+        super.onStartListening()
+        val state = ConnectApp.state.value
+        qsTile?.apply {
+            this.state = if (state.connected) Tile.STATE_ACTIVE else Tile.STATE_INACTIVE
+            label = getString(R.string.app_name)
+            val status = Notices.status(this@ConnectTileService, state.status)
+            subtitle = status
+            // Monochrome: a checked shield while connected, the app's shield otherwise.
+            icon = Icon.createWithResource(this@ConnectTileService, if (state.connected) R.drawable.ic_shield_check else R.drawable.ic_vpn)
+            if (Build.VERSION.SDK_INT >= 30) stateDescription = status
+            updateTile()
+        }
+    }
+    override fun onClick() {
+        super.onClick()
+        val action = Runnable {
+            if (ConnectApp.state.value.busy) Controls.disconnect(this)
+            else if (VpnService.prepare(this) != null) openApp()
+            else Controls.connect(this)
+            onStartListening()
+        }
+        if (isLocked) unlockAndRun(action) else action.run()
+    }
+    // API 34+ uses PendingIntent. Older Android has only the Intent overload.
+    @android.annotation.SuppressLint("StartActivityAndCollapseDeprecated")
+    private fun openApp() {
+        val intent = Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        if (Build.VERSION.SDK_INT >= 34) startActivityAndCollapse(PendingIntent.getActivity(this, 4, intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT))
+        else @Suppress("DEPRECATION") startActivityAndCollapse(intent)
+    }
+}
+
+/** Static launcher shortcuts need an Activity to request unlock and VPN consent. */
+class ShortcutActivity : Activity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        val keyguard = getSystemService(KeyguardManager::class.java)
+        if (keyguard.isKeyguardLocked) keyguard.requestDismissKeyguard(this, object : KeyguardManager.KeyguardDismissCallback() {
+            override fun onDismissSucceeded() { perform() }
+            override fun onDismissCancelled() { finish() }
+            override fun onDismissError() { finish() }
+        }) else perform()
+    }
+    private val store get() = (application as ConnectApp).store
+    private fun perform() {
+        when (intent.action) {
+            ConnectVpnService.DISCONNECT -> Controls.disconnect(this)
+            ConnectVpnService.CONNECT -> connect()
+            // Decided now, not when the widget was drawn, so a stale widget can't do the opposite.
+            Controls.TOGGLE -> if (ConnectApp.state.value.busy) Controls.disconnect(this) else connect()
+            Controls.OPEN_TETHERING -> openTethering(this)
+            Controls.OPEN_APP -> openApp()
+            Controls.SHARE_USB -> store.shareWithTether = !store.shareWithTether
+            // Until hotspot sharing has been turned on in the app once, where it says that anyone
+            // who joins the hotspot can use the VPN, the widget asks in the app first.
+            Controls.SHARE_HOTSPOT ->
+                if (!store.shareOverHotspot && !store.hotspotExplained && !store.sharedHotspotBefore) openApp(confirmHotspot = true)
+                else store.shareOverHotspot = !store.shareOverHotspot
+        }
+        finish()
+    }
+    /** Connects, unless the app first needs VPN permission or a NetID and password: then it opens. */
+    private fun connect() {
+        val ready = store.user.isNotBlank() && (store.hasPassword || store.hasSession)
+        if (ready && VpnService.prepare(this) == null) Controls.connect(this)
+        else openApp()
+    }
+    /** The app as the launcher opens it: its own task, brought forward if it's already open.
+     *  This activity has its own empty affinity, so a plain start would put the app in this
+     *  hidden task instead. */
+    private fun openApp(confirmHotspot: Boolean = false) {
+        val launch = packageManager.getLaunchIntentForPackage(packageName) ?: Intent(this, MainActivity::class.java)
+        launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        // Delivered to a MainActivity that's already open, too (onNewIntent), so it can ask.
+        if (confirmHotspot) launch.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            .putExtra(Controls.EXTRA_CONFIRM_HOTSPOT, true)
+        startActivity(launch)
+    }
+}

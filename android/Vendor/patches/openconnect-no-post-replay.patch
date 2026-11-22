@@ -1,0 +1,20 @@
+--- a/http.c
++++ b/http.c
+@@ -934 +934,3 @@
+-			if (rq_retry) {
++			/* A failed write may have sent part or all of a login POST.
++			 * Never replay a request with a body after an ambiguous write. */
++			if (rq_retry && !request_body_type) {
+@@ -944,7 +944,11 @@
+ 
+ 	result = process_http_response(vpninfo, 0, header_cb, buf);
+ 	if (result < 0) {
+-		if (rq_retry) {
++		/* Once a request with a body has been sent, the server may have acted
++		 * on it: a login POST that answers the second-password prompt sends a
++		 * Duo push, and one that answers the password counts towards a lockout.
++		 * Don't send it again; fail, and let the user start a new login. */
++		if (rq_retry && !request_body_type) {
+ 			openconnect_close_https(vpninfo, 0);
+ 			vpn_progress(vpninfo, PRG_INFO,
+ 				     _("Retrying failed %s request on new connection\n"),
