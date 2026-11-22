@@ -1,3 +1,5 @@
+> **Monorepo note:** The canonical checkout is now `/Users/mini/Master/code/connectanytime-mobile` (run Android commands from `android/`). Historical verification logs below were recorded in the standalone `/Users/mini/Master/code/connectanytime-android` checkout prior to consolidation.
+
 # Material 3 Expressive redesign verification
 
 Verified on the Mac mini on 2026-11-12, on local `main`. No device or emulator was

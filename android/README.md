@@ -257,6 +257,7 @@ The default SDK is `~/Library/Android/sdk`; override it with ANDROID_HOME.
 Set `sdk.dir` in an untracked `local.properties` if Gradle cannot find your SDK.
 
 ```sh
+cd android
 Vendor/build-deps.sh
 ./gradlew assembleDebug testDebugUnitTest lintDebug
 scripts/verify-native.sh
@@ -384,8 +385,8 @@ From 0.1.2 the app updates itself from this repo's GitHub releases (`Updates.kt`
   The updated app logs "Updated from … to …". If notifications are allowed, it also posts
   "Updated to version …", since Android doesn't reopen it.
 
-To release: bump `versionCode` and `versionName` in `app/build.gradle.kts`, build and
-verify, then attach `ConnectAnytime-<versionName>-<versionCode>.apk` to a new tag.
+To release: bump `versionCode` and `versionName` in `android/app/build.gradle.kts`, build and
+verify from `android/`, then attach `ConnectAnytime-<versionName>-<versionCode>.apk` to a new `android-vX.Y.Z` tag (see `../docs/releasing.md`).
 
 ## Source map
 

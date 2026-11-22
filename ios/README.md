@@ -99,9 +99,9 @@ Each tunnel start also records the extension's version, so older log entries rem
 distinguishable after an update.
 
 For every distributed fix, increment the patch version and build number in
-`project.yml` (next: `0.1.4`, build `5`), then run `xcodegen generate` before building.
-Use an immutable matching Git tag, such as `v0.1.1`, and name the insider release
-`0.1.1 (2) — Hotspot and reconnect fixes`. Never replace an existing tag or distribute
+`ios/project.yml` (next: `0.1.4`, build `5`), then run `xcodegen generate` from `ios/` before building.
+Use an immutable matching Git tag, such as `ios-v0.1.3` (git tags only—no GitHub Release; see `../docs/releasing.md`), and name the insider release
+`0.1.3 (4) — ...`. Never replace an existing tag or distribute
 different code under an already used version/build pair. All three targets inherit
 the same version settings.
 
@@ -120,6 +120,7 @@ Requires a Mac with Xcode, [XcodeGen](https://github.com/yonaskolb/XcodeGen) and
 Apple Developer account (iOS VPN apps need one).
 
 ```sh
+cd ios
 Vendor/build-deps.sh        # builds OpenSSL + OpenConnect for iOS (checksums pinned)
 echo 'DEVELOPMENT_TEAM = YOURTEAMID' > Config/Local.xcconfig
 xcodegen generate
