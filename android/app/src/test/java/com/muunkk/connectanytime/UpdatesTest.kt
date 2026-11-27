@@ -52,15 +52,33 @@ class UpdatesTest {
         assertNull(ReleaseFeed.newest(json, 4))
     }
 
-    /** GitHub's real answer on 2026-11-12, trimmed to the fields that matter. */
-    @Test fun readsTheLiveFeed() {
+    @Test fun releaseApiPointsAtTheMonorepo() {
+        assertEquals("https://api.github.com/repos/muunkk/connectanytime-mobile/releases?per_page=20", ReleaseFeed.API)
+    }
+
+    /** Based on the 2026-11-12 legacy feed capture, with monorepo URLs and prefixed tags. */
+    @Test fun readsThePrefixedMonorepoFeed() {
         val json = javaClass.classLoader!!.getResource("github-releases.json")!!.readText()
-        val newest = ReleaseFeed.newest(json, 1)!!
         assertEquals(Release("0.1.1", 2,
-            "https://github.com/${ReleaseFeed.REPO}/releases/download/v0.1.1/ConnectAnytime-0.1.1-2.apk", 16362772,
+            "https://github.com/muunkk/connectanytime-mobile/releases/download/android-v0.1.1/ConnectAnytime-0.1.1-2.apk", 16362772,
             "d29b1be56e52df96a6af417fbd2cbb92968d5f3cb442d119a62196b02cfeb90e",
-            "https://github.com/${ReleaseFeed.REPO}/releases/tag/v0.1.1"), newest)
+            "https://github.com/muunkk/connectanytime-mobile/releases/tag/android-v0.1.1"), ReleaseFeed.newest(json, 1))
         assertNull(ReleaseFeed.newest(json, 2))
+    }
+
+    @Test fun rejectsLegacyReleasePageAndDownloadUrls() {
+        val name = "ConnectAnytime-0.1.5-6.apk"
+        val tag = "android-v0.1.5"
+        val legacyPage = release(tag, asset(name))
+            .put("html_url", "https://github.com/muunkk/connectanytime-android/releases/tag/v0.1.5")
+        val legacyDownload = release(tag, asset(name,
+            url = "https://github.com/muunkk/connectanytime-android/releases/download/v0.1.5/ConnectAnytime-0.1.5-6.apk"))
+        assertNull(ReleaseFeed.newest(feed(legacyPage), 5))
+        assertNull(ReleaseFeed.newest(feed(legacyDownload), 5))
+    }
+
+    @Test fun anIosReleaseWithoutAnApkIsIgnored() {
+        assertNull(ReleaseFeed.newest(feed(release("ios-v9.0.0", asset("ConnectAnytime.ipa"))), 1))
     }
 
     @Test fun ignoresAnythingItCannotCheck() {

@@ -48,9 +48,11 @@ xcodebuild build \
 xcodebuild test \
   -project ConnectAnytime.xcodeproj \
   -scheme ConnectAnytimeTests \
-  -destination 'platform=iOS Simulator,name=iPhone 17 Pro'
+  -destination 'platform=iOS Simulator,name=iPhone 17'
 scripts/test-strap-cookie.sh
 ```
+
+If that simulator is missing, pick any iPhone from `xcrun simctl list devices available`.
 
 ### 3. Signed Release archive & export
 

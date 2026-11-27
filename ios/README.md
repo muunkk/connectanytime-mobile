@@ -87,10 +87,10 @@ only if iOS also ends the extension before the next save succeeds.
 
 ## Versioning insider builds
 
-The current insider build is **0.1.3 (build 4)**, from the `overnight-diagnostics`
-branch: 0.1.2 (3) plus the audit fixes (PR #15) and the STRAP key kept in the saved
-session, so a rejoin after a phone restart doesn't need Duo (PR #16). 0.1.2 (3) is
-0.1.1 (2) plus logging to find why the VPN can be off in the morning (the
+The current insider build is **0.1.3 (build 4)** until 0.1.4 (5) is uploaded. It was
+built from the old `connectanytime-ios` repo's `overnight-diagnostics` branch: 0.1.2 (3)
+plus the audit fixes (PR #15) and the STRAP key kept in the saved session, so a rejoin
+after a phone restart doesn't need Duo (PR #16). 0.1.2 (3) is 0.1.1 (2) plus logging to find why the VPN can be off in the morning (the
 server's session limits, long sleeps, and a run of refused automatic starts counted
 instead of filling the log), and a notification when the session has ended. 0.1.1
 (build 2) contains the hotspot and reconnect fixes merged in PR #13.
@@ -98,10 +98,13 @@ The app shows its version under About and includes it in shared Activity logs.
 Each tunnel start also records the extension's version, so older log entries remain
 distinguishable after an update.
 
+`ios/project.yml` is set to **0.1.4 (build 5)**, the first build from this monorepo, to
+be tagged `ios-v0.1.4`; it has the same code as 0.1.3 (4).
+
 For every distributed fix, increment the patch version and build number in
-`ios/project.yml` (next: `0.1.4`, build `5`), then run `xcodegen generate` from `ios/` before building.
-Use an immutable matching Git tag, such as `ios-v0.1.3` (git tags only—no GitHub Release; see `../docs/releasing.md`), and name the insider release
-`0.1.3 (4) — ...`. Never replace an existing tag or distribute
+`ios/project.yml` (after 0.1.4: `0.1.5`, build `6`), then run `xcodegen generate` from `ios/` before building.
+Use an immutable matching Git tag, such as `ios-v0.1.4` (git tags only—no GitHub Release; see `../docs/releasing.md`), and name the insider release
+`0.1.4 (5) — ...`. Never replace an existing tag or distribute
 different code under an already used version/build pair. All three targets inherit
 the same version settings.
 

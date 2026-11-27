@@ -1,5 +1,34 @@
 > **Monorepo note:** The canonical checkout is now `/Users/mini/Master/code/connectanytime-mobile` (run Android commands from `android/`). Historical verification logs below were recorded in the standalone `/Users/mini/Master/code/connectanytime-android` checkout prior to consolidation.
 
+# Phase 3 Android updater cutover (2026-11-27)
+
+The prepared 0.1.5 (6) build checks `muunkk/connectanytime-mobile` for releases.
+`release-feed-v2.json` gives the monorepo its own cache file, so the first check
+after upgrading from 0.1.4 (5) sends no legacy ETag. Later checks revalidate with
+the monorepo ETag.
+
+`github-releases.json` uses the 2026-11-12 legacy feed capture with monorepo
+URLs and tags `android-v0.1.1` and `android-v0.1.0`. The asset sizes, digests,
+and other fields come from the original capture. A live capture is pending the
+first monorepo release.
+
+- `Vendor/build-deps.sh` verified the existing stamps for both ABIs.
+- After `./gradlew clean`, `./gradlew testDebugUnitTest lintDebug lintRelease assembleDebug assembleRelease`
+  passed. All 216 tests passed (25 in `UpdaterTest`, 16 in `UpdatesTest`), and each
+  lint variant reported 0 errors and 47 warnings. Screenshot tests use the generated build version.
+- The old cache filename made the isolation test fail because it sent the legacy
+  ETag. The old repo made both the literal API and the prefixed-feed tests fail.
+  All three passed with the monorepo settings restored.
+- `python3 scripts/verify-release.py` and `scripts/verify-native.sh` passed. The
+  STRAP harness (`scripts/test-strap-cookie.sh`) passed all 17 checks.
+- `aapt2 dump badging` reported `com.muunkk.connectanytime`, version 0.1.5 (6).
+  `apksigner verify --print-certs` matched the legacy signing certificate SHA-256
+  `b5e81629e55045309f942e9c954eb7cf8cea7942095ffbabb9c558b63080035e`.
+- Not tested on a device. Still pending: the phone install over 0.1.4 (5), and a second
+  monorepo-only release that the app finds and installs through **Check for updates**.
+
+---
+
 # Material 3 Expressive redesign verification
 
 Verified on the Mac mini on 2026-11-12, on local `main`. No device or emulator was
