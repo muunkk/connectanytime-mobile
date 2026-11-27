@@ -90,10 +90,11 @@ only if iOS also ends the extension before the next save succeeds.
 The current insider build is **0.1.3 (build 4)** until 0.1.4 (5) is uploaded. It was
 built from the old `connectanytime-ios` repo's `overnight-diagnostics` branch: 0.1.2 (3)
 plus the audit fixes (PR #15) and the STRAP key kept in the saved session, so a rejoin
-after a phone restart doesn't need Duo (PR #16). 0.1.2 (3) is 0.1.1 (2) plus logging to find why the VPN can be off in the morning (the
-server's session limits, long sleeps, and a run of refused automatic starts counted
-instead of filling the log), and a notification when the session has ended. 0.1.1
-(build 2) contains the hotspot and reconnect fixes merged in PR #13.
+after a phone restart doesn't need Duo (PR #16). 0.1.2 (3) is 0.1.1 (2) plus logging
+to find why the VPN can be off in the morning (the server's session limits, long
+sleeps, and a run of refused automatic starts counted instead of filling the log), and
+a notification when the session has ended. 0.1.1 (build 2) contains the hotspot and
+reconnect fixes merged in PR #13.
 The app shows its version under About and includes it in shared Activity logs.
 Each tunnel start also records the extension's version, so older log entries remain
 distinguishable after an update.
@@ -142,7 +143,7 @@ rather than link the old library.
 
 ```sh
 xcodebuild test -project ConnectAnytime.xcodeproj -scheme ConnectAnytimeTests \
-  -destination 'platform=iOS Simulator,name=iPhone 17 Pro'
+  -destination 'platform=iOS Simulator,name=iPhone 17'
 ```
 
 The unit tests cover logic that needs no VPN or Keychain, and run on the Simulator
@@ -166,7 +167,7 @@ exist for it too (Apple silicon Macs only):
 ```sh
 Vendor/build-deps.sh simulator   # into Vendor/out-sim
 xcodebuild build -project ConnectAnytime.xcodeproj -scheme ConnectAnytime \
-  -destination 'platform=iOS Simulator,name=iPhone 17 Pro' CODE_SIGNING_ALLOWED=NO
+  -destination 'platform=iOS Simulator,name=iPhone 17' CODE_SIGNING_ALLOWED=NO
 ```
 
 ## Licenses

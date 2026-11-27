@@ -75,6 +75,7 @@ class UpdaterTest {
         app.log.clear()
         dir.deleteRecursively()
         feedCache.delete()
+        File(app.noBackupFilesDir, "release-feed.json").delete()
     }
 
     @Test fun nothingNewerIsUpToDate() {
@@ -214,7 +215,7 @@ class UpdaterTest {
         app.store.feedEtag = "\"legacy-etag\""
         publish(current + 1 to apk(current + 1))
         val monorepoApi = "https://api.github.com/repos/muunkk/connectanytime-mobile/releases?per_page=20"
-        val freshApkUrl = url("ConnectAnytime-0.9.${current + 1}-${current + 1}.apk")
+        val freshApkUrl = "https://github.com/muunkk/connectanytime-mobile/releases/download/v/ConnectAnytime-0.9.${current + 1}-${current + 1}.apk"
         val u = updater()
 
         u.check()

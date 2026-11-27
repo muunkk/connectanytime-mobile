@@ -330,12 +330,13 @@ app opening it, then install. Save your account, tap Connect, allow the VPN and
 approve Duo. Debug and release install side by side with separate account and
 session storage. Android allows only one active VPN at a time. The debug build
 uses the local debug key. Release updates must use the release key above.
-Nothing has been published or pushed.
 
 ## Updates
 
 Starting with 0.1.5, Android checks `muunkk/connectanytime-mobile` GitHub releases
-for updates (`Updates.kt`, `UpdateSection.kt`).
+for updates (`Updates.kt`, `UpdateSection.kt`). Builds up to 0.1.4 check the legacy
+`muunkk/connectanytime-android` repo and won't find 0.1.5 on their own: install it once
+with `adb install -r` or an approved bridge release (see `../docs/monorepo-plan.md`, 3B).
 
 - **When it checks.** On opening the app, at most every 6 hours after the last
   check that worked, while **Check automatically** (under About) is on. A failed check is

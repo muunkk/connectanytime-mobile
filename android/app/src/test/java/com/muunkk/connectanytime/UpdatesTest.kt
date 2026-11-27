@@ -77,6 +77,7 @@ class UpdatesTest {
         assertNull(ReleaseFeed.newest(feed(legacyDownload), 5))
     }
 
+    // Only shows that a non-APK asset is skipped; iOS uses git tags, not GitHub Releases.
     @Test fun anIosReleaseWithoutAnApkIsIgnored() {
         assertNull(ReleaseFeed.newest(feed(release("ios-v9.0.0", asset("ConnectAnytime.ipa"))), 1))
     }
