@@ -27,6 +27,7 @@ import java.security.MessageDigest
 class UpdaterTest {
     private lateinit var app: ConnectApp
     private val dir get() = File(app.noBackupFilesDir, "updates")
+    private val feedCache get() = File(app.noBackupFilesDir, "release-feed-v2.json")
     private val current = BuildConfig.VERSION_CODE
 
     /** What the fake GitHub serves. */
@@ -73,6 +74,7 @@ class UpdaterTest {
         app.store.prefs.edit().clear().commit()
         app.log.clear()
         dir.deleteRecursively()
+        feedCache.delete()
         File(app.noBackupFilesDir, "release-feed.json").delete()
     }
 
@@ -205,13 +207,35 @@ class UpdaterTest {
         assertTrue(u.state.value is UpdateState.UpToDate)
     }
 
+    @Test fun monorepoRequestsIgnoreTheLegacyFeedAndEtag() {
+        publish(5 to apk(5), name = { "0.1.4" })
+        File(app.noBackupFilesDir, "release-feed.json").writeText(
+            feedJson.replace(ReleaseFeed.REPO, "muunkk/connectanytime-android"),
+        )
+        app.store.feedEtag = "\"legacy-etag\""
+        publish(current + 1 to apk(current + 1))
+        val monorepoApi = "https://api.github.com/repos/muunkk/connectanytime-mobile/releases?per_page=20"
+        val freshApkUrl = "https://github.com/muunkk/connectanytime-mobile/releases/download/v/ConnectAnytime-0.9.${current + 1}-${current + 1}.apk"
+        val u = updater()
+
+        u.check()
+        assertEquals(monorepoApi to null, requests.first())
+        val ready = u.state.value as UpdateState.Ready
+        assertEquals(current + 1, ready.release.versionCode)
+        assertEquals(freshApkUrl, ready.release.apkUrl)
+
+        u.check()
+        assertEquals(listOf(monorepoApi to null, freshApkUrl to null, monorepoApi to "\"e-${feedJson.hashCode()}\""), requests)
+        assertEquals(ready, u.state.value)
+    }
+
     @Test fun rateLimitsAndBadListsSayWhy() {
         feedCode = 403
         updater().apply { check(); assertEquals(UpdateState.Failed(R.string.update_busy), state.value) }
         feedCode = 200; feedJson = "{\"message\":\"x\"}"
         updater().apply { check(); assertEquals(UpdateState.Failed(R.string.update_bad_feed), state.value) }
         // A bad list isn't cached for the next 304.
-        assertFalse(File(app.noBackupFilesDir, "release-feed.json").exists())
+        assertFalse(feedCache.exists())
     }
 
     private fun readyUpdater(): Pair<Updater, Release> {
@@ -321,7 +345,7 @@ class UpdaterTest {
         publish(current to apk(current))
         val u = updater()
         u.check()
-        val feed = File(app.noBackupFilesDir, "release-feed.json")
+        val feed = feedCache
         feed.writeText(feed.readText().take(10))
         u.check()
         assertEquals(UpdateState.Failed(R.string.update_bad_feed), u.state.value)
@@ -432,7 +456,7 @@ class UpdaterTest {
         publish(current to apk(current))
         val u = updater()
         u.check()
-        File(app.noBackupFilesDir, "release-feed.json").delete()
+        feedCache.delete()
         u.check()
         assertNull(requests.last().second)
         assertTrue(u.state.value is UpdateState.UpToDate)

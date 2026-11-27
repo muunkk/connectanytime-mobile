@@ -19,7 +19,7 @@ Enter `ios/` from the repository root and stay there through the release. A sign
 
 ### 1. Version bump & tag
 
-1. Check App Store Connect for existing builds on the target marketing version, including in-flight builds. Increment `MARKETING_VERSION` and `CURRENT_PROJECT_VERSION` in `ios/project.yml`. Use a fresh version/build pair.
+1. Check App Store Connect for existing builds on the target marketing version, including in-flight builds. Increment `MARKETING_VERSION` and `CURRENT_PROJECT_VERSION` in `ios/project.yml`. Use a fresh version/build pair. If `main` already carries a prepared pair that is still unused, keep it.
 2. With a clean checkout, merge to `main`, tag that commit locally, and build from the tag. iOS tags are Git-only.
 
 ```sh
@@ -48,9 +48,11 @@ xcodebuild build \
 xcodebuild test \
   -project ConnectAnytime.xcodeproj \
   -scheme ConnectAnytimeTests \
-  -destination 'platform=iOS Simulator,name=iPhone 17 Pro'
+  -destination 'platform=iOS Simulator,name=iPhone 17'
 scripts/test-strap-cookie.sh
 ```
+
+If that simulator is missing, pick any iPhone from `xcrun simctl list devices available`.
 
 ### 3. Signed Release archive & export
 
@@ -123,7 +125,7 @@ Enter `android/` from the repository root and stay there through the release.
 
 ### 1. Version bump & tag
 
-1. Check both GitHub release histories and the release operator’s record for any withdrawn builds. Increment `versionName` and set `versionCode` strictly above every code exposed on either repo in `android/app/build.gradle.kts`.
+1. Check both GitHub release histories and the release operator’s record for any withdrawn builds. Increment `versionName` and set `versionCode` strictly above every code exposed on either repo in `android/app/build.gradle.kts`. If `main` already carries a prepared version that is still above every exposed code, keep it.
 2. Merge to `main`, tag the merge commit locally, and check out the exact tag before building:
 
 ```sh

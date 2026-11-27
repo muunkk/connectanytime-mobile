@@ -1,6 +1,6 @@
 # Plan: Combine ConnectAnytime iOS & Android into One Repo (Lean Revision)
 
-**Status:** Phases 1 and 2 are complete. Phase 3 awaits approval. The cutover covers Internal TestFlight on iOS and the GitHub Releases updater on Android.
+**Status:** Phases 1 and 2 are complete. Phase 3 code prep (Android updater switch to this repo, iOS `0.1.4 (5)` and Android `0.1.5 (6)` version bumps) is ready. Releases, device checks, and legacy repo archival are still pending and need separate approval. The cutover covers Internal TestFlight on iOS and the GitHub Releases updater on Android.
 **Target repo:** `muunkk/connectanytime-mobile` (public; name is final before Android's switch release).
 **Out of scope:** The Mac app (`muunkk/connectanytime`), which drives Cisco Secure Client and shares no OpenConnect code or release flow.
 

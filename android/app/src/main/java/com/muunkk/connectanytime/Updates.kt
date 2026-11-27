@@ -45,18 +45,18 @@ data class Release(val versionName: String, val versionCode: Int, val apkUrl: St
 
 /** Reads GitHub's release list for this repo. Pure, so it's tested without a network. */
 object ReleaseFeed {
-    const val REPO = "muunkk/connectanytime-android"
+    const val REPO = "muunkk/connectanytime-mobile"
     const val API = "https://api.github.com/repos/$REPO/releases?per_page=20"
     private const val PAGES = "https://github.com/$REPO/releases/"
     private const val DOWNLOADS = "https://github.com/$REPO/releases/download/"
     const val MAX_APK = 200L * 1024 * 1024
-    // The name scripts/verify-release.py gives the APK: ConnectAnytime-<versionName>-<versionCode>.apk
+    // The release asset name is ConnectAnytime-<versionName>-<versionCode>.apk.
     private val NAME = Regex("""ConnectAnytime-(\d+(?:\.\d+){1,3})-(\d{1,9})\.apk""")
     private val DIGEST = Regex("""sha256:([0-9a-f]{64})""")
 
     /**
-     * The newest release above [current], or null. Prereleases count (every release so far is
-     * one). Skips drafts, and any APK that has no SHA-256 digest from GitHub, isn't served from
+     * The newest release above [current], or null. Android releases use prereleases.
+     * Skips drafts, and any APK that has no SHA-256 digest from GitHub, isn't served from
      * this repo's release downloads, or has an implausible size: the download is checked
      * against that digest, so without one there'd be nothing to check it against.
      */
@@ -155,7 +155,8 @@ class Updater internal constructor(
     private var lastConfirm: Intent? = null
     private var committedAt = 0L
     private val dir get() = File(app.noBackupFilesDir, "updates")
-    private val feed get() = File(app.noBackupFilesDir, "release-feed.json")
+    // A new cache file keeps the first monorepo request from using the legacy feed's ETag.
+    private val feed get() = File(app.noBackupFilesDir, "release-feed-v2.json")
     private val current get() = BuildConfig.VERSION_CODE
 
     init { scope.launch { restore() } }
